@@ -9,7 +9,7 @@ import networkx as nx
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
 from spektral.data.dataset import Dataset, Graph
-from itertools  import permutations
+
 
 
 
@@ -61,13 +61,13 @@ class DataPreparation:
         print("------------------------------------------------------------.arrays--------------------")
         # Load data from Trees into Pandas DataFrames (df)
         print("--------------------------------------------------------------------------------df_signal--------------------")
-        #self.df_signal     = treeS.arrays(library = "pd", entry_stop=101)
-        self.df_signal     = treeS.arrays(library = "pd", entry_stop= 1000)
+        self.df_signal     = treeS.arrays(library = "pd", entry_stop=45000)
+        #self.df_signal     = treeS.arrays(library = "pd")
         print(self.df_signal)
         
         print("--------------------------------------------------------------------------------df_background--------------------")
         #self.df_background = treeB.arrays(library = "pd", entry_stop=1000000)
-        self.df_background = treeB.arrays(library = "pd", entry_stop=2000)
+        self.df_background = treeB.arrays(library = "pd", entry_stop=45000)
         print(self.df_background)
 
     ############################### PREPARE DATA ###############################
@@ -162,12 +162,8 @@ class DataPreparation:
 
         print("------------------------------------------------------------Concatenation--------------------")
         # Concatenate normalized DataFrames
-        if model_type == "GNN":
-            X = pd.concat([X_signal_normalized[:500000],
-                        X_background_normalized[:500000]])
-        else:
-            X = pd.concat([X_signal_normalized,
-                            X_background_normalized[:943645]])
+        X = pd.concat([X_signal_normalized,
+                        X_background_normalized[:943645]])
 
         print("--------------------------------------------------------------------------------X--------------------")
         print(X)
@@ -178,9 +174,9 @@ class DataPreparation:
         #                    np.zeros(943645)])
         # Add a 'target' column to distinguish signal (1) from background (0)
         if model_type == "GNN":
-            y = np.concatenate([np.ones(len(X_signal_normalized[:500000])),
-                            np.zeros(len(X_background_normalized[:500000]))])
-            X.insert(7,"isSignal",y)
+            y = np.concatenate([np.ones(len(X_signal_normalized)),
+                                np.zeros(len(X_background_normalized[:943645]))])
+            #X.insert(7,"isSignal",y)
         else:
             #definition of the labels array   
             y = np.concatenate([np.ones(len(X_signal_normalized)),
@@ -193,15 +189,7 @@ class DataPreparation:
 
         print("------------------------------------------------------------Split data--------------------")
         # Split data into training and test sets
-        if model_type=="GNN":
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X,
-                                                                                    y,
-                                                                                    test_size    = 0.3,
-                                                                                    random_state = 42,
-                                                                                    shuffle      = True)
-            
-            #spliting del dataset in tre parti uguali (train, validation, test)
-        else:
+        if model_type != "GNN":
             self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X,
                                                                                     y,
                                                                                     test_size    = 0.2,
@@ -211,156 +199,180 @@ class DataPreparation:
             # SPLITTA DATASET IN TRAIN E TEST test_size=0.2
 
 
-        print("--------------------------------------------------------------------------------X_train--------------------")
-        print(self.X_train)
+            print("--------------------------------------------------------------------------------X_train--------------------")
+            print(self.X_train)
 
-        print("--------------------------------------------------------------------------------y_train--------------------")
-        print(self.y_train) 
+            print("--------------------------------------------------------------------------------y_train--------------------")
+            print(self.y_train) 
 
-        print("--------------------------------------------------------------------------------X_test--------------------")
-        print(self.X_test)
-
-        print("--------------------------------------------------------------------------------y_test--------------------")
-        print(self.y_test)
-
-        ############################### Definition of category ###############################
-        # print("------------------------------------------------------------Definition of category--------------------")
-     
-        # Separate data into two groups based on the absolute value of "eta" => categorisation
-        self.X_train_cat1 = self.X_train[self.X_train['massK0S'].abs() > 0.498]
-        self.X_train_cat2 = self.X_train[self.X_train['massK0S'].abs() <= 0.498]
-
-        self.y_train_cat1 = self.y_train[self.X_train['massK0S'].abs() > 0.498]
-        self.y_train_cat2 = self.y_train[self.X_train['massK0S'].abs() <= 0.498]
-
-        self.X_test_cat1  = self.X_test[self.X_test['massK0S'].abs() > 0.498]
-        self.X_test_cat2  = self.X_test[self.X_test['massK0S'].abs() <= 0.498]
-        
-        self.y_test_cat1  = self.y_test[self.X_test['massK0S'].abs() > 0.498]
-        self.y_test_cat2  = self.y_test[self.X_test['massK0S'].abs() <= 0.498]
-
-        # # Dropping 'eta' column
-        # self.X_train      = self.X_train.drop(columns=['CtK0S'])
-        # self.X_test       = self.X_test.drop(columns=['CtK0S'])
-
-        # self.X_train_cat1 = self.X_train_cat1.drop(columns=['CtK0S'])
-        # self.X_test_cat1  = self.X_test_cat1.drop(columns=['CtK0S'])
-
-        # self.X_train_cat2 = self.X_train_cat2.drop(columns=['CtK0S'])
-        # self.X_test_cat2  = self.X_test_cat2.drop(columns=['CtK0S'])
-        print("---------------------------------------------------------------------------GRAPH_PREPARATION--------------------")
-        if model_type == "GNN":
-            #Create the graph containing the data for the GNN training
-            #splitting
-            #node_features_train = self.X_train.to_numpy()
-            node_features_train_pd, node_features_val_pd, self.y_train, self.y_val = train_test_split(self.X_train,
-                                                                                                self.y_train, 
-                                                                                                test_size=0.5,
-                                                                                                random_state=42,
-                                                                                                shuffle=True)
-            #remove the last rows of the dataframe if they contain a different number of elements
-            
-            if len(node_features_train_pd) != len(self.X_test):
-                difference = len(node_features_train_pd) - len(self.X_test)
-                if difference > 0:                    
-                    node_features_train_pd = node_features_train_pd.head(len(self.X_test))
-                    self.y_train = self.y_train[:-difference]
-                else:
-                    self.X_test = self.X_test.head(len(node_features_train_pd))
-                    self.y_test = self.y_test[:difference]
-            
-            if len(node_features_train_pd) != len(node_features_val_pd):
-                difference = len(node_features_train_pd) - len(node_features_val_pd)
-                print("difference: ", difference)
-                if difference > 0:
-                    node_features_train_pd = node_features_train_pd.head(len(node_features_val_pd))
-                    self.y_train = self.y_train[:-difference]
-                else:
-                    print("prima della modifica y di val:" , len(self.y_val))
-                    node_features_val_pd = node_features_val_pd.head(len(node_features_train_pd))
-                    self.y_val = self.y_val[:difference]
-                """
-                print("lunghezza di train ", len(node_features_train_pd))
-                print("lunghezza di val: ", len(node_features_val_pd))
-                print("lunghezza di test ", len(self.X_test))
-                print("lunghezza di train labels ", len(self.y_train))
-                print("lunghezza di val labels: ", len(self.y_val))
-                print("lunghezza di test labels", len(self.y_test))
-                """
-            
-            print("---------------------------------------------------------------------Train_adjacency_matrix--------------------")
-            
-            #a_train, edges_train = build_graph(labels= self.y_train)
-            a_train = build_graph(labels= self.y_train,
-                                  dataframe=node_features_train_pd)
-            
-            print("---------------------------------------------------------------------Validation_adjacency_matrix--------------------")
-            
-            #a_val, edges_val = build_graph(labels=self.y_val)
-            a_val = build_graph(labels=self.y_val,
-                                dataframe=node_features_val_pd)
-            
-            print("----------------------------------------------------------------------Test_adjacency_matrix--------------------")
-            
-            #a_test, edges_test = build_graph(labels= self.y_test)
-            a_test = build_graph(labels= self.y_test,
-                                 dataframe= self.X_test)
-            
-            #remove the columns needed for classification
-            node_features_train_pd = node_features_train_pd.drop(columns=['isSignal', 'index'])
-            node_features_val_pd = node_features_val_pd.drop(columns=['isSignal', 'index'])
-            self.X_test = self.X_test.drop(columns=['isSignal', 'index'])
-
-            print(node_features_train_pd)
-            print(node_features_val_pd)
+            print("--------------------------------------------------------------------------------X_test--------------------")
             print(self.X_test)
 
-            #transform pandas dataframes into numpy arrays
-            node_features_train = node_features_train_pd.to_numpy()
-            node_features_val = node_features_val_pd.to_numpy()
-            node_features_test = self.X_test.to_numpy()
+            print("--------------------------------------------------------------------------------y_test--------------------")
+            print(self.y_test)
 
-            print("shape di X_train:", node_features_train.shape,
-              "shape di y_train: ", self.y_train.shape,
-              "shape di X_val:",node_features_val.shape,
-              "shape di y_val: ", self.y_val.shape,
-              "shape di X_test: ", node_features_test.shape,
-              "shape di y_test: ", self.y_test.shape)
+            ############################### Definition of category ###############################
+            # print("------------------------------------------------------------Definition of category--------------------")
+     
+            # Separate data into two groups based on the absolute value of "eta" => categorisation
+            self.X_train_cat1 = self.X_train[self.X_train['massK0S'].abs() > 0.498]
+            self.X_train_cat2 = self.X_train[self.X_train['massK0S'].abs() <= 0.498]
+
+            self.y_train_cat1 = self.y_train[self.X_train['massK0S'].abs() > 0.498]
+            self.y_train_cat2 = self.y_train[self.X_train['massK0S'].abs() <= 0.498]
+
+            self.X_test_cat1  = self.X_test[self.X_test['massK0S'].abs() > 0.498]
+            self.X_test_cat2  = self.X_test[self.X_test['massK0S'].abs() <= 0.498]
+        
+            self.y_test_cat1  = self.y_test[self.X_test['massK0S'].abs() > 0.498]
+            self.y_test_cat2  = self.y_test[self.X_test['massK0S'].abs() <= 0.498]
+
+            # # Dropping 'eta' column
+            # self.X_train      = self.X_train.drop(columns=['CtK0S'])
+            # self.X_test       = self.X_test.drop(columns=['CtK0S'])
+
+            # self.X_train_cat1 = self.X_train_cat1.drop(columns=['CtK0S'])
+            # self.X_test_cat1  = self.X_test_cat1.drop(columns=['CtK0S'])
+
+            # self.X_train_cat2 = self.X_train_cat2.drop(columns=['CtK0S'])
+            # self.X_test_cat2  = self.X_test_cat2.drop(columns=['CtK0S'])
+            self.n_samples = 0
+
+        if model_type == "GNN":
+            print("---------------------------------------------------------------------------GRAPH_PREPARATION--------------------")
+            print("------------------------------------------------------------------Sample_preparation--------------------")
+            sample_size = 3000
+            self.n_samples = int(len(X)/sample_size)
+            X_sample = list()
+            y_sample = list()
+            for i in range(self.n_samples):
+                if i == len(X)/sample_size and len(X)%self.n_samples != 0:
+                    X_sample.append(X[i*sample_size:(i*sample_size+len(X)%self.n_samples)])
+                    y_sample.append(y[i*sample_size:(i*sample_size+len(X)%self.n_samples)])
+                else:
+                    X_sample.append(X[i*sample_size:(i+1)*sample_size])
+                    y_sample.append(y[i*sample_size:(i+1)*sample_size])
+            print("shape di X_sample: ", len(X_sample),
+                  "shape di y_sample: ", len(y_sample))
+            print("shape di X: ", X.shape,
+                  "shape di y: ", y.shape)
+
+            self.dataset = list()
+            self.y_test = np.empty(shape = 0)
+            for i in range(self.n_samples):
+                print("preparation of the sample number: ", i, "/", self.n_samples)
+                #Create the graph containing the data for the GNN training
+                #splitting the samples into three parts: training, validation, testing
+                X_train, node_features_test_pd, y_train, y_test = train_test_split(X_sample[i],
+                                                                    y_sample[i],
+                                                                    test_size    = 0.3,
+                                                                    random_state = 42,
+                                                                    shuffle      = True)
             
-            dataset_train = GNNDataset(node_features=node_features_train, 
-                                       a_matrix=a_train, 
-                                       #edge_features= edges_train, 
-                                       labels= self.y_train)
-            dataset_val = GNNDataset(node_features=node_features_val, 
-                                     a_matrix=a_val, 
-                                     #edge_features= edges_val, 
-                                     labels= self.y_val)
-            dataset_test = GNNDataset(node_features=node_features_test, 
-                                      a_matrix= a_test, 
-                                      #edge_features= edges_test, 
-                                      labels= self.y_test)
+                node_features_train_pd, node_features_val_pd, y_train, y_val = train_test_split(X_train,
+                                                                                                          y_train, 
+                                                                                                          test_size    = 0.5,
+                                                                                                          random_state = 42,
+                                                                                                          shuffle      = True)
+            
+                #remove the last rows of the dataframe if they contain a different number of elements
+                if len(node_features_train_pd) != len(node_features_test_pd):
+                    difference = len(node_features_train_pd) - len(node_features_test_pd)
+                    if difference > 0:                    
+                        node_features_train_pd = node_features_train_pd.head(len(node_features_test_pd))
+                        y_train = y_train[:-difference]
+                    else:
+                        node_features_test_pd = node_features_test_pd.head(len(node_features_train_pd))
+                        y_test = y_test[:difference]
+                self.y_test = np.append(self.y_test, y_test)
 
-            self.dataset = [dataset_train, dataset_val, dataset_test]
+                if len(node_features_train_pd) != len(node_features_val_pd):
+                    difference = len(node_features_train_pd) - len(node_features_val_pd)
+                    print("difference: ", difference)
+                    if difference > 0:
+                        node_features_train_pd = node_features_train_pd.head(len(node_features_val_pd))
+                        y_train = y_train[:-difference]
+                    else:
+                        print("prima della modifica y di val:" , len(y_val))
+                        node_features_val_pd = node_features_val_pd.head(len(node_features_train_pd))
+                        y_val = y_val[:difference]
+                    
+                    print("lunghezza di train ", len(node_features_train_pd))
+                    print("lunghezza di val: ", len(node_features_val_pd))
+                    print("lunghezza di test ", len(node_features_test_pd))
+                    print("lunghezza di train labels ", len(y_train))
+                    print("lunghezza di val labels: ", len(y_val))
+                    print("lunghezza di test labels", len(y_test))
+            
+                print("---------------------------------------------------------------------Train_adjacency_matrix--------------------")
+            
+                #a_train, edges_train = build_graph(labels= self.y_train)
+                a_train = build_graph(labels= y_train,
+                                      dataframe=node_features_train_pd)
+            
+                print("---------------------------------------------------------------------Validation_adjacency_matrix--------------------")
+            
+                #a_val, edges_val = build_graph(labels=self.y_val)
+                a_val = build_graph(labels=y_val,
+                                    dataframe=node_features_val_pd)
+            
+                print("----------------------------------------------------------------------Test_adjacency_matrix--------------------")
+            
+                #a_test, edges_test = build_graph(labels= self.y_test)
+                a_test = build_graph(labels= y_test,
+                                     dataframe= node_features_test_pd)
+            
+                #remove the columns needed for classification
+                #node_features_train_pd = node_features_train_pd.drop(columns=['isSignal', 'index'])
+                #node_features_val_pd = node_features_val_pd.drop(columns=['isSignal', 'index'])
+                #node_features_test_pd = node_features_test_pd.drop(columns=['isSignal', 'index'])
 
-            """
-            print("----------------------------------------------------------------------Graph_rep--------------------")
-            #visual representation of the trainig graph: each node is revelation, signal and background are of different colours
-            #plt.figure(figsize=(10, 10))
-            #graph_rep = graph.sample(1500)
-            #rel_type = ([self.df_signal, self.df_background])
-            #nx.draw_spring(graph, node_size=15, node_color=rel_type)
-            G = nx.Graph()
-            G.add_nodes_from(node_features_train.tolist())
-            #G.add_edges_from(a_train.t().tolist())
-            pos = nx.spring_layout(G, seed=42)
-            plt.figure(figsize=(6,6))
-            nx.draw_networkx(G, pos, with_labels=True, node_color = 'lightblue', node_size = 800)
-            plt.title("Graph of the data")
-            plt.axis('off')
-            if not os.path.exists("graph_rep"):
-                os.makedirs("graph_rep")
-            plt.savefig("graph_rep/dataset_sample.svg")
-            """
+                print(node_features_train_pd)
+                print(node_features_val_pd)
+                print(node_features_test_pd)
+
+                #transform pandas dataframes into numpy arrays
+                node_features_train = node_features_train_pd.to_numpy()
+                node_features_val = node_features_val_pd.to_numpy()
+                node_features_test = node_features_test_pd.to_numpy()
+
+                print("shape di X_train:", node_features_train.shape,
+                "shape di y_train: ", y_train.shape,
+                "shape di X_val:",node_features_val.shape,
+                "shape di y_val: ", y_val.shape,
+                "shape di X_test: ", node_features_test.shape,
+                "shape di y_test: ", y_test.shape)
+            
+                dataset_train = GNNDataset(node_features=node_features_train,
+                                           a_matrix=a_train,
+                                           #edge_features= edges_train,
+                                           labels= y_train)
+                dataset_val = GNNDataset(node_features=node_features_val,
+                                         a_matrix=a_val,
+                                         #edge_features= edges_val,
+                                         labels= y_val)
+                dataset_test = GNNDataset(node_features=node_features_test,
+                                          a_matrix= a_test,
+                                          #edge_features= edges_test,
+                                          labels= y_test)
+
+                self.dataset.append([dataset_train, dataset_val, dataset_test])
+                
+                if i%10 == 0:
+                    print("----------------------------------------------------------------------Graph_rep--------------------")
+                    #visual representation of the trainig graph: each node is revelation
+                    G = nx.from_scipy_sparse_array(a_train)
+                    plt.figure(figsize=(10,6))
+                    nx.draw_networkx(G, with_labels=True, node_color = 'lightblue', node_size = 20)
+                    plt.title("Graph of the training sample data")
+                    plt.axis('off')
+                    if not os.path.exists("graph_rep"):
+                        os.makedirs("graph_rep")
+                    plt.savefig("graph_rep/dataset_sample.svg")
+
+            #set to None the attribute not used in this model
+            self.X_test, self.X_train, self.X_train_cat1, self.X_train_cat2, self.X_test_cat1, self.X_test_cat2 = None, None, None, None, None, None
+            self.y_train = None
             
 class GNNDataset(Dataset):
     def __init__(self, 
@@ -370,6 +382,7 @@ class GNNDataset(Dataset):
                  labels):
         self.node_features = node_features
         self.labels = tf.convert_to_tensor(labels)
+        #self.a_matrix = coo_matrix((labels.size, labels.size))
         #self.edge_features = edge_features
         self.a_matrix = a_matrix
         super().__init__()
@@ -383,20 +396,18 @@ class GNNDataset(Dataset):
 def build_graph(labels, 
                 dataframe):
     index = list()
-    #edge_features = list() non li uso -> tutti gli edges sono uguali
-    
-    #aggiungo la colonna "index" al dataframe
-    for i in range(labels.size):
+    for i in range(len(dataframe)):
         index.append(i)
-    dataframe.insert(8, "index", index)
-
-    #extract the signal from the dataframe
-    signal = dataframe[dataframe["isSignal"]==1]
-    signal_lenght = len(signal.index)
-    signal_index = signal['index'].to_numpy()
+    dataframe.insert(7, "index", index)
 
     nonzero_rows = np.empty(shape=0)
     nonzero_col = np.empty(shape=0)
+    
+    #extract the signal from the dataframe
+    #signal = dataframe[dataframe["isSignal"]==1]
+    signal = dataframe[(dataframe["nSigmapr"]>-0.5) & (dataframe["nSigmapr"]<0.5)]
+    signal_lenght = len(signal.index)
+    signal_index = signal['index'].to_numpy()
 
     permutation = signal_index.tolist()
     for i in range(signal_lenght-1):
