@@ -80,6 +80,7 @@ if __name__ == "__main__":
         # data_prep.y_train_cat2,
         data_prep.feature_names,
         model_type,
+        data_prep.n_samples
     )
     print("Training time ({}):".format(model_type), classifier.training_time)
     
@@ -90,6 +91,7 @@ if __name__ == "__main__":
                                    # data_prep.y_test_cat1,
                                    # data_prep.X_test_cat2,
                                    # data_prep.y_test_cat2,
+                                   data_prep.n_samples
     )
 
 ############################### Print Results ###############################
