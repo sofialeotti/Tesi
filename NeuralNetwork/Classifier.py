@@ -118,7 +118,8 @@ class SignalBackgroundClassifier:
                         #  X_train_cat2,
                         #  y_train_cat2,
                          feature_names,
-                         model_type
+                         model_type,
+                         n_samples
                         ):  # Training function
 
         # Train the classifier NN, noting the call to the class NeuralNetwork
@@ -144,7 +145,7 @@ class SignalBackgroundClassifier:
 
         elif isinstance(self.clf, GraphNeuralNetwork): #train the GNN
             start_time = time.time()
-            self.clf.trainig_function()
+            self.clf.training_function(n_samples)
             self.training_time = time.time() - start_time
 
         else:  # Train the other classifier
@@ -176,6 +177,7 @@ class SignalBackgroundClassifier:
                             # y_test_cat1,
                             # X_test_cat2,
                             # y_test_cat2,
+                            n_samples
                            ):
         
         # Formulate predictions for NN
@@ -186,7 +188,7 @@ class SignalBackgroundClassifier:
             # probability_cat2 = self.clf_cat2.model.predict(X_test_cat2)
         
         elif isinstance(self.clf, GraphNeuralNetwork):
-            probability = self.clf.evaluation_function()
+            probability = self.clf.evaluation_function(n_samples)
 
         else:  # Formulate predictions for the performance of other classifiers.
             probability = self.clf.predict_proba(X_test)[:, 1]
@@ -215,6 +217,7 @@ class SignalBackgroundClassifier:
         # )  # Needed for Confusion Matrix
 
         print("------------------------------------------------------------calculate_roc_curve--------------------")
+        print("shape di y_test: ", y_test.shape)
         # Calculate ROC curve
         self.fpr, self.tpr, self.thresholds = roc_curve(y_test,     probability)
         self.roc_auc                        = roc_auc_score(y_test, probability)
@@ -424,69 +427,70 @@ class GraphNeuralNetwork:
         """
         
         print("------------------------------------------------------------model_initialization--------------------")
-        self.model = GNN(n_nodes=dataset[0].n_nodes) #lo inizializzo usando il training dataset
-        self.data = dataset #list of the 3 datasets
+        self.model = GNN(n_nodes=dataset[0][0].n_nodes) #lo inizializzo usando il training dataset
+        self.data = dataset #list: every element is a list of three datasets, the training, validation and testing dataset for every sample
 
         self.model.compile(
             optimizer = Adam(learning_rate),
             loss = 'binary_crossentropy',
             weighted_metrics = ["accuracy"])
     
-    def trainig_function(self):
+    def training_function(self,
+                         n_samples):
         
         print("----------------------------------------GraphNeuralNetwork_training--------------------")
-        
-        #loaders: create batches from graphs
-        loader_tr = SingleLoader(self.data[0], epochs=4) #training data loader
-        loader_va = SingleLoader(self.data[1], epochs=4) #validation data loader
-       
+        accuracy = list()
+        for i in range(n_samples):
+            #loaders: create batches from graphs
+            loader_tr = SingleLoader(self.data[i][0], epochs=5) #training data loader
+            loader_va = SingleLoader(self.data[i][1], epochs=5) #validation data loader
+
         ############################### Model training ###############################
-        self.history = self.model.fit(
-            loader_tr.load(),
-            steps_per_epoch=loader_tr.steps_per_epoch,
-            validation_data=loader_va.load(),
-            validation_steps=loader_va.steps_per_epoch,
-            epochs=4
-        )
+            self.history = self.model.fit(loader_tr.load(),
+                                          steps_per_epoch=loader_tr.steps_per_epoch,
+                                          validation_data=loader_va.load(),
+                                          validation_steps=loader_va.steps_per_epoch,
+                                          epochs=1
+                                          )
+            accuracy.append(self.history.history['accuracy'])
 
         #Accuracy plot
         print("------------------------------------------------------------accuracy_plot--------------------")     
         plt.figure(figsize=(8, 6))
         plt.plot(
-            self.history.history['accuracy'],
+            #self.history.history['accuracy'],
+            accuracy,
             color = "blue",
             lw    = 2,
             label = "Full dataset"
         )
-        plt.xlabel("Epoch")
+        plt.xlabel("Dataset")
         plt.ylabel("Accuracy")
         plt.title("Accuracy plot: Graph Neural Network")
         plt.legend(loc="lower right")
         plt.grid(True)
         plt.savefig("evaluation_results/accuracy_plot.svg")
     
-    def evaluation_function(self):
+    def evaluation_function(self,
+                            n_samples):
+        """
         print("size dei labels: ", self.data[2].n_labels)
         print("numero di nodi: ", self.data[2].n_nodes)
         print("la shape della matrice: ", self.data[2].a_matrix.shape)
-        loader_te = SingleLoader(self.data[2], epochs=10)
-        print("Cosa esce dal mio loader??")
-        batch = next(iter(loader_te.load()))
-        print("Batch structure (ev):", type(batch))
-        if isinstance(batch, tuple):
-            for i, elem in enumerate(batch):
-                print(f" Element {i}: type={type(elem)}, shape={getattr(elem, 'shape', None)}")
-        
-        print("stampiamo ogni elemento del batch, per sicurezza: ")
-        
-        batch = next(iter(loader_te.load()))
-        x_in, y = batch
-        print("Inputs:", [elem.shape for elem in x_in])
-        print("Labels:", y.shape)
-
+        #loader_te = DisjointLoader(self.data[2], node_level=True, batch_size=5, epochs=5)
+        """
+        loader_te = SingleLoader(self.data[0][2], epochs=5)
         eval_results = self.model.evaluate(loader_te.load(), steps = loader_te.steps_per_epoch )
         print("Done.\n" "Test loss: {}\n" "Test accuracy: {}".format(*eval_results))
-        return self.model.predict(loader_te.load(), steps= loader_te.steps_per_epoch)
+        prediction = self.model.predict(loader_te.load(), steps= loader_te.steps_per_epoch)
+        for i in range(n_samples-1):
+            loader_te = SingleLoader(self.data[i+1][2], epochs=5)
+            eval_results = self.model.evaluate(loader_te.load(), steps = loader_te.steps_per_epoch )
+            print("Done.\n" "Test loss: {}\n" "Test accuracy: {}".format(*eval_results))
+            prediction = np.append(prediction, self.model.predict(loader_te.load(), steps= loader_te.steps_per_epoch))
+
+        
+        return prediction
     
     ############################### Saving the graph neural network ###############################
 
