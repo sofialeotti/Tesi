@@ -104,7 +104,7 @@ class SignalBackgroundClassifier:
                 n_neighbors=75, metric="euclidean", weights="distance"
             )
         elif model_type == "GNN":
-            self.clf = GraphNeuralNetwork(dataset=dataset, learning_rate=0.1)
+            self.clf = GraphNeuralNetwork(dataset=dataset, learning_rate=0.01)
         else:
             raise ValueError("Invalid model type.")
 
@@ -144,7 +144,7 @@ class SignalBackgroundClassifier:
 
         elif isinstance(self.clf, GraphNeuralNetwork): #train the GNN
             start_time = time.time()
-            self.clf.trainig_function()
+            self.clf.training_function()
             self.training_time = time.time() - start_time
 
         else:  # Train the other classifier
@@ -348,7 +348,7 @@ class NeuralNetwork:
 
         # funzione fondamentale con cui viene allenato il modello model.fit --- sto agendo su un oggetto della
         #classe NeuralNetwork
-        n_epochs = 2
+        n_epochs = 10
         self.history = self.model.fit(X_train,
                                  y_train,
                                  epochs           = n_epochs,
@@ -385,16 +385,18 @@ class NeuralNetwork:
 
 class GNN(Model):
     def __init__(self,
-                 n_nodes,
-                 hidden_channels_0 = 3,
-                 hidden_channels_1 = 2,
+                 dataset,
+                 hidden_channels = 16,
                  output_channels = 1):
         super().__init__()
-        self.mask = np.ones((n_nodes), dtype=float) #costruisco una mask "fittizia"
-        self.gcn0 = GCNConv(channels=hidden_channels_0, activation='relu')
+        self.mask = np.ones((dataset.n_nodes), dtype=float) #costruisco una mask "fittizia"
+        #self.mask = dataset.labels
+        print("la mask:", self.mask)
+        self.gcn0 = GCNConv(channels=hidden_channels, activation='relu')
         self.dropout = Dropout(0.5)
-        self.gcn1 = GCNConv(channels=hidden_channels_1, activation='relu')
-        self.gcn2 = GCNConv(channels=output_channels, activation='sigmoid')
+        #self.gcn1 = GCNConv(channels=hidden_channels_1, activation='relu')
+        self.gcn1 = GCNConv(channels=output_channels, activation='sigmoid')
+        #self.gcn2 = GCNConv(channels=output_channels, activation='sigmoid')
     
     def call(self, 
              inputs):
@@ -405,8 +407,8 @@ class GNN(Model):
         x = self.dropout(x)
         x = self.gcn1([x, a], mask=self.mask)
         #layer 3
-        x = self.dropout(x)
-        x = self.gcn2([x, a], mask=self.mask)
+        #x = self.dropout(x)
+        #x = self.gcn2([x, a], mask=self.mask)
         return x
 
     
@@ -424,7 +426,7 @@ class GraphNeuralNetwork:
         """
         
         print("------------------------------------------------------------model_initialization--------------------")
-        self.model = GNN(n_nodes=dataset[0].n_nodes) #lo inizializzo usando il training dataset
+        self.model = GNN(dataset=dataset[0]) #lo inizializzo usando il training dataset
         self.data = dataset #list of the 3 datasets
 
         self.model.compile(
@@ -432,13 +434,13 @@ class GraphNeuralNetwork:
             loss = 'binary_crossentropy',
             weighted_metrics = ["accuracy"])
     
-    def trainig_function(self):
+    def training_function(self):
         
         print("----------------------------------------GraphNeuralNetwork_training--------------------")
         
         #loaders: create batches from graphs
-        loader_tr = SingleLoader(self.data[0], epochs=4) #training data loader
-        loader_va = SingleLoader(self.data[1], epochs=4) #validation data loader
+        loader_tr = SingleLoader(self.data[0]) #training data loader
+        loader_va = SingleLoader(self.data[1]) #validation data loader
        
         ############################### Model training ###############################
         self.history = self.model.fit(
@@ -446,7 +448,7 @@ class GraphNeuralNetwork:
             steps_per_epoch=loader_tr.steps_per_epoch,
             validation_data=loader_va.load(),
             validation_steps=loader_va.steps_per_epoch,
-            epochs=4
+            epochs=4000
         )
 
         #Accuracy plot
@@ -469,13 +471,7 @@ class GraphNeuralNetwork:
         print("size dei labels: ", self.data[2].n_labels)
         print("numero di nodi: ", self.data[2].n_nodes)
         print("la shape della matrice: ", self.data[2].a_matrix.shape)
-        loader_te = SingleLoader(self.data[2], epochs=10)
-        print("Cosa esce dal mio loader??")
-        batch = next(iter(loader_te.load()))
-        print("Batch structure (ev):", type(batch))
-        if isinstance(batch, tuple):
-            for i, elem in enumerate(batch):
-                print(f" Element {i}: type={type(elem)}, shape={getattr(elem, 'shape', None)}")
+        loader_te = SingleLoader(self.data[2])
         
         print("stampiamo ogni elemento del batch, per sicurezza: ")
         
@@ -484,8 +480,8 @@ class GraphNeuralNetwork:
         print("Inputs:", [elem.shape for elem in x_in])
         print("Labels:", y.shape)
 
-        eval_results = self.model.evaluate(loader_te.load(), steps = loader_te.steps_per_epoch )
-        print("Done.\n" "Test loss: {}\n" "Test accuracy: {}".format(*eval_results))
+        #eval_results = self.model.evaluate(loader_te.load(), steps = loader_te.steps_per_epoch )
+        #print("Done.\n" "Test loss: {}\n" "Test accuracy: {}".format(*eval_results))
         return self.model.predict(loader_te.load(), steps= loader_te.steps_per_epoch)
     
     ############################### Saving the graph neural network ###############################
@@ -566,8 +562,8 @@ class Additional_evaluation:
                     "Plotting feature importance is not supported for this type of classifier."
                 )
         
-        elif self.model_type == "Neural_Network":
-            if isinstance(self.clf, NeuralNetwork):
+        elif self.model_type == "Neural_Network" or self.model_type == "GNN":
+            if isinstance(self.clf, NeuralNetwork) or isinstance(self.clf, GraphNeuralNetwork):
                 # Calculate feature importance for Neural Network model
                 weights         = np.abs(self.clf.model.get_weights()[0]).mean(axis=1)
                 sorted_indices  = np.argsort(weights)[::-1]
@@ -579,7 +575,10 @@ class Additional_evaluation:
                          sorted_weights)
                 plt.xlabel("Feature Importance")
                 plt.ylabel("Features")
-                plt.title("Feature Importance for Neural Network")
+                if self.model_type =="Neural_Network":
+                    plt.title("Feature Importance for Neural Network")
+                else:
+                    plt.title("Feature Importance for Graph Neural Network")
                 # plt.show()
                 plt.savefig("evaluation_results/feature_importance_Neural_Network.svg")
 
