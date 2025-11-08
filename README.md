@@ -6,7 +6,7 @@ To run this code the following libraries are needed:
   - [scikit-learn](https://scikit-learn.org/stable/install.html)
   - [Tensorflow](https://www.tensorflow.org/install)
   - [Spektral](https://graphneural.network/)
-# How to run the code
+## How to run the code
 ## Analysis ##
 Inside the `Analysis` directory
 
