@@ -4,7 +4,6 @@ import pandas                as pd
 import matplotlib.pyplot     as plt
 import tensorflow            as tf
 import os
-import networkx as nx
 
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
@@ -61,14 +60,10 @@ class DataPreparation:
         print("------------------------------------------------------------.arrays--------------------")
         # Load data from Trees into Pandas DataFrames (df)
         print("--------------------------------------------------------------------------------df_signal--------------------")
-        #self.df_signal     = treeS.arrays(library = "pd", entry_stop=500000)
         self.df_signal     = treeS.arrays(library = "pd")
         print(self.df_signal)
         
         print("--------------------------------------------------------------------------------df_background--------------------")
-        #self.df_background = treeB.arrays(library = "pd", entry_stop=1000000)
-        #self.df_background = treeB.arrays(library = "pd", entry_stop=400000)
-        #self.df_background = treeB.arrays(library = "pd", entry_stop=500000)
         self.df_background = treeB.arrays(library = "pd", entry_stop=1000000)
         print(self.df_background)
 
@@ -164,10 +159,6 @@ class DataPreparation:
 
         print("------------------------------------------------------------Concatenation--------------------")
         # Concatenate normalized DataFrames
-        #if model_type == "GNN":
-            #X = pd.concat([X_signal_normalized[:500000],
-                       #X_background_normalized[:500000]])
-        #else:
         X = pd.concat([X_signal_normalized,
                        X_background_normalized[:943645]])
         print("shape di X dopo concatenation: ", X.shape)
@@ -175,21 +166,10 @@ class DataPreparation:
         print("--------------------------------------------------------------------------------X--------------------")
         print(X)
 
-        print("------------------------------------------------------------Add target--------------------")
-        
-        # y = np.concatenate([np.ones(len(X_signal_normalized)),
-        #                    np.zeros(943645)])
-        # Add a 'target' column to distinguish signal (1) from background (0)
-        #if model_type == "GNN":
-            #y = np.concatenate([np.ones(len(X_signal_normalized[:500000])),
-                            #np.zeros(len(X_background_normalized[:500000]))])
-            #X.insert(7,"isSignal",y)
-       #else:
-            #definition of the labels array   
+        print("------------------------------------------------------------Add target--------------------")  
         y = np.concatenate([np.ones(len(X_signal_normalized)),
                                 np.zeros(len(X_background_normalized[:943645]))])
         
-        print("shape di y appena creato: ", y.shape)
         
         
         print("--------------------------------------------------------------------------------y--------------------")
@@ -203,25 +183,7 @@ class DataPreparation:
                                                                                     test_size    = 0.3,
                                                                                     random_state = 42,
                                                                                     shuffle      = True)
-            #verifico che i dati siano bilanciati
-            n_signal = 0
-            n_back =0
-            for y in self.y_train:
-                if y == 0:
-                    n_back += 1
-                else:
-                    n_signal += 1
-            print("TRAIN SAMPLE:\nsignal:", n_signal, "\nbackground: ", n_back)
-
-            n_signal = 0
-            n_back =0
-            for y in self.y_test:
-                if y == 0:
-                    n_back += 1
-                else:
-                    n_signal += 1
-            print("TEST SAMPLE:\nsignal:", n_signal, "\nbackground: ", n_back)
-            #spliting del dataset in tre parti uguali (train, validation, test)
+            #splitting del dataset in tre parti uguali (train, validation, test)
         else:
             self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X,
                                                                                     y,
@@ -279,10 +241,11 @@ class DataPreparation:
                                                                                                 test_size=0.5,
                                                                                                 random_state=42,
                                                                                                 shuffle=True)
-            #remove the last rows of the dataframe if they contain a different number of elements
             
+            #remove the last rows of the dataframe if they contain a different number of elements
             if len(node_features_train_pd) != len(self.X_test):
                 difference = len(node_features_train_pd) - len(self.X_test)
+                print("lenght difference (train set-test set): ", difference)
                 if difference > 0:                    
                     node_features_train_pd = node_features_train_pd.head(len(self.X_test))
                     self.y_train = self.y_train[:-difference]
@@ -292,12 +255,11 @@ class DataPreparation:
             
             if len(node_features_train_pd) != len(node_features_val_pd):
                 difference = len(node_features_train_pd) - len(node_features_val_pd)
-                print("difference: ", difference)
+                print("lenght difference (train set- validation set): ", difference)
                 if difference > 0:
                     node_features_train_pd = node_features_train_pd.head(len(node_features_val_pd))
                     self.y_train = self.y_train[:-difference]
                 else:
-                    print("prima della modifica y di val:" , len(self.y_val))
                     node_features_val_pd = node_features_val_pd.head(len(node_features_train_pd))
                     self.y_val = self.y_val[:difference]
                 """
@@ -308,33 +270,10 @@ class DataPreparation:
                 print("lunghezza di val labels: ", len(self.y_val))
                 print("lunghezza di test labels", len(self.y_test))
                 """
-            
-            #print("---------------------------------------------------------------------Train_adjacency_matrix--------------------")
-            
-            #a_train, edges_train = build_graph(labels= self.y_train)
-            #a_train = build_graph(labels= self.y_train,
-                                  #dataframe=node_features_train_pd)
-            
-            #print("---------------------------------------------------------------------Validation_adjacency_matrix--------------------")
-            
-            #a_val, edges_val = build_graph(labels=self.y_val)
-            #a_val = build_graph(labels=self.y_val,
-                                #dataframe=node_features_val_pd)
-            
-            #print("----------------------------------------------------------------------Test_adjacency_matrix--------------------")
-            
-            #a_test, edges_test = build_graph(labels= self.y_test)
-            #a_test = build_graph(labels= self.y_test,
-                                 #dataframe= self.X_test)
-            
-            #remove the columns needed for classification
-            #node_features_train_pd = node_features_train_pd.drop(columns=['isSignal', 'index'])
-            #node_features_val_pd = node_features_val_pd.drop(columns=['isSignal', 'index'])
-            #self.X_test = self.X_test.drop(columns=['isSignal', 'index'])
 
-            print("train dataframe:", node_features_train_pd)
-            print("validation dataframe: ", node_features_val_pd)
-            print("test dataframe: ", self.X_test)
+            print("train dataframe:\n", node_features_train_pd)
+            print("validation dataframe: \n", node_features_val_pd)
+            print("test dataframe: \n", self.X_test)
 
             #transform pandas dataframes into numpy arrays
             node_features_train = node_features_train_pd.to_numpy()
@@ -348,17 +287,12 @@ class DataPreparation:
               "shape di X_test: ", node_features_test.shape,
               "shape di y_test: ", self.y_test.shape)
             
-            dataset_train = GNNDataset(node_features=node_features_train, 
-                                       #a_matrix=a_train, 
-                                       #edge_features= edges_train, 
+            #create the dataset for training, validation, testing
+            dataset_train = GNNDataset(node_features=node_features_train,
                                        labels= self.y_train)
-            dataset_val = GNNDataset(node_features=node_features_val, 
-                                     #a_matrix=a_val, 
-                                     #edge_features= edges_val, 
+            dataset_val = GNNDataset(node_features=node_features_val,
                                      labels= self.y_val)
-            dataset_test = GNNDataset(node_features=node_features_test, 
-                                      #a_matrix= a_test, 
-                                      #edge_features= edges_test, 
+            dataset_test = GNNDataset(node_features=node_features_test,
                                       labels= self.y_test)
 
             self.dataset = [dataset_train, dataset_val, dataset_test]
@@ -386,53 +320,15 @@ class DataPreparation:
 class GNNDataset(Dataset):
     def __init__(self, 
                  node_features,
-                 #a_matrix,
-                 #edge_features,
                  labels):
         self.node_features = node_features
         self.labels = tf.convert_to_tensor(labels)
-        #self.edge_features = edge_features
-        #self.a_matrix = a_matrix
         a_matrix = coo_matrix((labels.size, labels.size))
         self.a_matrix = add_self_loops(a_matrix) #aggiungo un collegamento ad ogni nodo con se stesso (matrice diagonale)
-        self.a_matrix = normalized_adjacency(self.a_matrix) #normalizzo la matrice
+        self.a_matrix = normalized_adjacency(self.a_matrix) #normalizzazione della matrice
         super().__init__()
     def read(self):
         graph = Graph(x=self.node_features, 
                       a= self.a_matrix, 
-                      #e=self.edge_features, 
                       y=self.labels)
         return [graph]
-
-def build_graph(labels, 
-                dataframe):
-    index = list()
-    
-    #aggiungo la colonna "index" al dataframe
-    for i in range(labels.size):
-        index.append(i)
-    dataframe.insert(8, "index", index)
-
-    #extract the signal from the dataframe
-    signal = dataframe[dataframe["isSignal"]==1]
-    signal_lenght = len(signal.index)
-    signal_index = signal['index'].to_numpy()
-
-    nonzero_rows = np.empty(shape=0)
-    nonzero_col = np.empty(shape=0)
-
-    permutation = signal_index.tolist()
-    for i in range(signal_lenght-1):
-        permutation = permutation[-1:] + permutation[:-1]
-        nonzero_col = np.append(nonzero_col, permutation)
-
-    for i in range(signal_lenght-1):
-        nonzero_rows = np.append(nonzero_rows, signal_index)
-    
-    values = np.ones(nonzero_rows.shape)
-
-    #adjacency matrix as a Scipy sparse COO matrix
-    a_matrix = coo_matrix((values, (nonzero_rows, nonzero_col)), 
-                          [labels.size, labels.size])
-    print("la shape della matrice: ", a_matrix.get_shape())
-    return a_matrix
