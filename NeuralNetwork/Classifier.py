@@ -374,6 +374,22 @@ class NeuralNetwork:
         plt.legend(loc="lower right")
         plt.grid(True)
         plt.savefig("evaluation_results/accuracy_plot.svg")
+
+        #Loss plot
+        print("------------------------------------------------------------Loss_plot--------------------")     
+        plt.figure(figsize=(8, 6))
+        plt.plot(
+            self.history.history['loss'],
+            color = "blue",
+            lw    = 2,
+            label = "Full dataset"
+        )
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("Loss plot: Neural Network")
+        plt.legend(loc="upper right")
+        plt.grid(True)
+        plt.savefig("evaluation_results/loss_plot.svg")
         
     ############################### Saving the neural network ###############################
 
@@ -381,22 +397,21 @@ class NeuralNetwork:
         self.model.save(path)
 
 ############################### CLASS GNN ###############################
-#Definition of a Graph Neural Network with 2 convolutional layers
 
+#Definition of a Graph Neural Network with 3 convolutional layers
 class GNN(Model):
     def __init__(self,
                  dataset,
-                 hidden_channels = 16,
+                 hidden_channels = 20,
+                 hidden_channels_1 = 16,
                  output_channels = 1):
         super().__init__()
-        self.mask = np.ones((dataset.n_nodes), dtype=float) #costruisco una mask "fittizia"
-        #self.mask = dataset.labels
-        print("la mask:", self.mask)
+        self.mask = np.ones((dataset.n_nodes), dtype=float) #costruisco una mask
+        #print("la mask:", self.mask)
         self.gcn0 = GCNConv(channels=hidden_channels, activation='relu')
         self.dropout = Dropout(0.5)
-        #self.gcn1 = GCNConv(channels=hidden_channels_1, activation='relu')
-        self.gcn1 = GCNConv(channels=output_channels, activation='sigmoid')
-        #self.gcn2 = GCNConv(channels=output_channels, activation='sigmoid')
+        self.gcn1 = GCNConv(channels=hidden_channels_1, activation= 'relu')
+        self.gcn2 = GCNConv(channels=output_channels, activation='sigmoid')
     
     def call(self, 
              inputs):
@@ -407,8 +422,8 @@ class GNN(Model):
         x = self.dropout(x)
         x = self.gcn1([x, a], mask=self.mask)
         #layer 3
-        #x = self.dropout(x)
-        #x = self.gcn2([x, a], mask=self.mask)
+        x = self.dropout(x)
+        x = self.gcn2([x, a], mask=self.mask)
         return x
 
     
@@ -420,13 +435,14 @@ class GraphNeuralNetwork:
         """
         Constructor for initializing the GraphNeuralNetwork class.
         Parameters:
-        - dataset (): list of Dataset objects. Contains the data for the training (dataset[0]), validation (dataset[1]) 
-            and testing(dataset[2]) of the graph neural network.
-        This constructor creates and initializes the graph neural network model using the provided data.
+        - dataset (list): list of GNNDataset objects. Contains the data for the training (dataset[0]), 
+            validation (dataset[1]) and testing(dataset[2]) of the graph neural network.
+        - learning rate (float)
+        This constructor creates and initializes the Graph Neural Network model using the provided data.
         """
         
         print("------------------------------------------------------------model_initialization--------------------")
-        self.model = GNN(dataset=dataset[0]) #lo inizializzo usando il training dataset
+        self.model = GNN(dataset=dataset[0]) #inizializzazione usando il training dataset
         self.data = dataset #list of the 3 datasets
 
         self.model.compile(
@@ -448,7 +464,7 @@ class GraphNeuralNetwork:
             steps_per_epoch=loader_tr.steps_per_epoch,
             validation_data=loader_va.load(),
             validation_steps=loader_va.steps_per_epoch,
-            epochs=4000
+            epochs=4200
         )
 
         #Accuracy plot
@@ -466,19 +482,29 @@ class GraphNeuralNetwork:
         plt.legend(loc="lower right")
         plt.grid(True)
         plt.savefig("evaluation_results/accuracy_plot.svg")
+
+        #Loss plot
+        print("------------------------------------------------------------Loss_plot--------------------")     
+        plt.figure(figsize=(8, 6))
+        plt.plot(
+            self.history.history['loss'],
+            color = "blue",
+            lw    = 2,
+            label = "Full dataset"
+        )
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("Loss plot: Graph Neural Network")
+        plt.legend(loc="upper right")
+        plt.grid(True)
+        plt.savefig("evaluation_results/loss_plot.svg")
     
+    ############################### Model evaluation ###############################
     def evaluation_function(self):
-        print("size dei labels: ", self.data[2].n_labels)
-        print("numero di nodi: ", self.data[2].n_nodes)
-        print("la shape della matrice: ", self.data[2].a_matrix.shape)
-        loader_te = SingleLoader(self.data[2])
-        
-        print("stampiamo ogni elemento del batch, per sicurezza: ")
-        
-        batch = next(iter(loader_te.load()))
-        x_in, y = batch
-        print("Inputs:", [elem.shape for elem in x_in])
-        print("Labels:", y.shape)
+        #print("size dei labels: ", self.data[2].n_labels)
+        #print("numero di nodi: ", self.data[2].n_nodes)
+        #print("la shape della matrice: ", self.data[2].a_matrix.shape)
+        loader_te = SingleLoader(self.data[2]) #testing data loader
 
         #eval_results = self.model.evaluate(loader_te.load(), steps = loader_te.steps_per_epoch )
         #print("Done.\n" "Test loss: {}\n" "Test accuracy: {}".format(*eval_results))
