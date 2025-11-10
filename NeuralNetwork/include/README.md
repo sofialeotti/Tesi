@@ -29,13 +29,13 @@ This code defines the classes: `SignalBackgroundClassifier`, `NeuralNetwork`, `G
         - The 'Adam' optimiser is chosen to update the weights during training; the learning rate parameter is obtained by grid search.
         - The model is compiled, specifying the optimiser, the loss function to be minimised, and the metric to be monitored during training (in this case, accuracy).
     - The _`train_classifier()`_ method trains the NN model using training data and corresponding labels; the training time is printed. Also the accuracy per epoch plot and the loss per epoch plot are saved into the 'evaluation_results' directory.
-- **GNN:** This class represtents a Graph Neural Network (GNN) model defined using the Keras API of Tensorflow and the Spektral API.
+- **GNN:** This class represtents a Graph Neural Network (GNN) model defined using the Keras API of Tensorflow and the Spektral library.
     - The _`call()`_ method specifies the scructure of the model:
-        - The first and the second layer is a convolutional GNN layer (`GCNConv`). The activation function is the non linear ReLu;
+        - The first and the second layer are convolutional GNN layers (`GCNConv`). The activation function is the non linear ReLu;
         - Between the layers there is a dropout layer, realized using Keras Dropout. The dropout frequency is set to 0.5;
-        - The third, and last layer is also a convolutional GNN layer (`GCNConv`), but the activation function is sigmoid, with only one neuron;
+        - The third, and last layer is also a convolutional GNN layer (`GCNConv`), but the activation function is sigmoid, with only one neuron, typical of binary classification;
 - **GraphNeuralNetwork:** This class actually implements the GNN, providing the code for the initialization, training and evaluation of the model.
-    - The constructor initializes and compiles the model specifying the optimizer ('Adam'), the loss function (binary crossentropy) and the learning rate.s
+    - The constructor initializes and compiles the model specifying the optimizer ('Adam'), the loss function (binary crossentropy) and the learning rate.
     - The _`training_function()`_ method firstly initializes the training and validation Loaders from the Datasets, then trains the model using Keras `fit()`. To divide the graphs into batches the method `load()` has to be called on the Loaders. The training time is printed. Also the accuracy per epoch plot and the loss per epoch plot are saved into the 'evaluation_results' directory.
     - The _`evaluation_function()`_ method returns the predictions of the model on the testing data using Keras `predict()`. In order to use this function, the evaluation Loader is initialized and the `load()` method is called on it.
     - The _`save_GNN()`_ method saves the model in the specified path.
